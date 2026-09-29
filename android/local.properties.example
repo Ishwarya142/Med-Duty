@@ -1,0 +1,15 @@
+## Google Maps API key (Android)
+
+Copy this file to `local.properties` (same folder) and add your key:
+
+```properties
+sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\sdk
+MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
+```
+
+Get a key from [Google Cloud Console](https://console.cloud.google.com/google/maps-apis):
+- Enable **Maps SDK for Android**
+- Enable **Maps SDK for iOS** (if building for iOS)
+- Enable **Maps JavaScript API** (for web)
+
+Restrict each key to your app's package name / bundle ID in production.

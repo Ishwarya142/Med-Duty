@@ -1,32 +1,37 @@
 class OnboardingData {
   final String title;
   final String description;
-  final String icon;
+  final String badge;
+  final String category;
 
-  OnboardingData({
+  const OnboardingData({
     required this.title,
     required this.description,
-    required this.icon,
+    required this.badge,
+    required this.category,
   });
 }
 
 final List<OnboardingData> onboardingPages = [
-  OnboardingData(
-    title: "Find Nearby Duties",
+  const OnboardingData(
+    badge: "RELIEVING DUTIES",
+    category: "duties",
+    title: "Find Duties Near You",
     description:
-        "Discover nearby clinics and hospitals looking for doctors and nurses.",
-    icon: "🏥",
+        "Discover location-based relieving duties and clinical shifts around you with upfront payouts, verified hospitals, and flexible hours.",
   ),
-  OnboardingData(
-    title: "Connect with Doctors",
+  const OnboardingData(
+    badge: "CAREER OPPORTUNITIES",
+    category: "jobs",
+    title: "Find Healthcare Jobs",
     description:
-        "Build your professional medical network across India.",
-    icon: "👨‍⚕️",
+        "Explore full-time, part-time, and locum career openings tailored to your medical specialty and experience level.",
   ),
-  OnboardingData(
-    title: "Grow Your Career",
+  const OnboardingData(
+    badge: "PROFESSIONAL NETWORK",
+    category: "community",
+    title: "Connect with Healthcare Professionals",
     description:
-        "Temporary duties, specialists and permanent hiring in one place.",
-    icon: "🚑",
+        "Share clinical experiences, discuss cases, celebrate milestones, and expand your professional medical network across India.",
   ),
 ];

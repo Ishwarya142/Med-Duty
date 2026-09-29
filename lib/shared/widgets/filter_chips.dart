@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 class FilterChips extends StatelessWidget {
   const FilterChips({super.key});
@@ -31,14 +32,17 @@ class FilterChips extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: selected
-                    ? const Color(0xffFF5C8D)
-                    : Colors.white,
+                    ? AppColors.accent
+                    : AppColors.surface,
                 borderRadius: BorderRadius.circular(25),
+                border: Border.all(
+                  color: AppColors.divider.withValues(alpha: 0.3),
+                ),
               ),
               child: Text(
                 filters[index],
                 style: TextStyle(
-                  color: selected ? Colors.white : Colors.black87,
+                  color: selected ? AppColors.white : AppColors.white,
                   fontWeight: FontWeight.w600,
                 ),
               ),

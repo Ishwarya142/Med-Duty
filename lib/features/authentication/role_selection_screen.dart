@@ -1,77 +1,139 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class RoleSelectionScreen extends StatelessWidget {
+import '../../app/app_routes.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_text_styles.dart';
+import '../../providers/auth_provider.dart';
+import '../../shared/widgets/role_card.dart';
+import 'auth_navigation_helper.dart';
+
+class RoleSelectionScreen extends StatefulWidget {
   const RoleSelectionScreen({super.key});
 
-  Widget roleCard(
-      IconData icon,
-      String title,
-      String subtitle,
-      ) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          radius: 28,
-          backgroundColor: const Color(0xffFFE6EE),
-          child: Icon(
-            icon,
-            color: const Color(0xffFF5C8D),
+  @override
+  State<RoleSelectionScreen> createState() => _RoleSelectionScreenState();
+}
+
+class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
+  String selectedRole = '';
+  bool _isSaving = false;
+
+  bool get _googleComplete {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['googleComplete'] == true) return true;
+    return false;
+  }
+
+  Future<void> _selectRole(String role, UserRole userRole) async {
+    if (_isSaving) return;
+    setState(() {
+      selectedRole = role;
+      _isSaving = true;
+    });
+
+    if (_googleComplete) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      try {
+        await authProvider.completeGoogleRegistration(userRole);
+        if (!mounted) return;
+        await navigateAfterAuthentication(context, authProvider);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save your role. Please try again.'),
+            backgroundColor: AppColors.error,
           ),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        subtitle: Text(subtitle),
-        trailing: const Icon(Icons.arrow_forward_ios),
-        onTap: () {},
-      ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    Navigator.pushNamed(
+      context,
+      AppRoutes.register,
+      arguments: role,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final googleComplete = _googleComplete;
+
     return Scaffold(
-      backgroundColor: const Color(0xffFFF5F8),
-      appBar: AppBar(
-        title: const Text("Choose Your Role"),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-
-            const SizedBox(height: 20),
-
-            roleCard(
-              Icons.medical_services,
-              "Doctor",
-              "Find and apply for duties",
-            ),
-
-            const SizedBox(height: 20),
-
-            roleCard(
-              Icons.local_hospital,
-              "Nurse",
-              "Find nursing duties",
-            ),
-
-            const SizedBox(height: 20),
-
-            roleCard(
-              Icons.business,
-              "Hospital",
-              "Post and manage duties",
-            ),
-          ],
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 32),
+              Text(
+                googleComplete ? 'Complete Your Profile' : 'Choose Your Role',
+                style: AppTextStyles.display,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                googleComplete
+                    ? 'Select your professional role to continue using MedDuty'
+                    : 'Select how you want to use MedDuty',
+                style: AppTextStyles.subtitle,
+              ),
+              const SizedBox(height: 36),
+              RoleCard(
+                icon: Icons.medical_services_rounded,
+                title: 'Doctor',
+                subtitle: 'Find and apply for duties',
+                onTap: () => _selectRole('doctor', UserRole.doctor),
+              ),
+              const SizedBox(height: 16),
+              RoleCard(
+                icon: Icons.local_hospital_rounded,
+                title: 'Nurse',
+                subtitle: 'Find nursing duties nearby',
+                onTap: () => _selectRole('nurse', UserRole.nurse),
+              ),
+              const SizedBox(height: 16),
+              RoleCard(
+                icon: Icons.business_rounded,
+                title: 'Hospital',
+                subtitle: 'Post and manage duties',
+                onTap: () => _selectRole('hospital', UserRole.hospital),
+              ),
+              if (_isSaving) ...[
+                const SizedBox(height: 24),
+                const Center(child: CircularProgressIndicator()),
+              ],
+              const Spacer(),
+              if (!googleComplete)
+                Center(
+                  child: TextButton(
+                    onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                    child: RichText(
+                      text: TextSpan(
+                        style: AppTextStyles.body,
+                        children: [
+                          const TextSpan(text: 'Already have an account? '),
+                          TextSpan(
+                            text: 'Login',
+                            style: AppTextStyles.body.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
     );

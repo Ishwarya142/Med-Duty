@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 
 class CategoryChip extends StatelessWidget {
   final String title;
@@ -20,16 +21,19 @@ class CategoryChip extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: selected
-            ? const Color(0xffFF5C8D)
-            : Colors.white,
+            ? AppColors.accent
+            : AppColors.surface,
         borderRadius: BorderRadius.circular(30),
+        border: Border.all(
+          color: AppColors.divider.withValues(alpha: 0.3),
+        ),
       ),
       child: Text(
         title,
         style: TextStyle(
           color: selected
-              ? Colors.white
-              : Colors.black87,
+              ? AppColors.white
+              : AppColors.white,
           fontWeight: FontWeight.w600,
         ),
       ),

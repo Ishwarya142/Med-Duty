@@ -2,6 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MedDuty needs microphone access to record voice messages.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MedDuty needs your location to find nearby medical duties.</string>
+	<key>GMSApiKey</key>
+	<string>YOUR_GOOGLE_MAPS_API_KEY</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MedDuty needs photo library access to share images in chat.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>MedDuty needs camera access to capture photos in chat.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
