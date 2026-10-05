@@ -7,10 +7,11 @@ import 'package:provider/provider.dart';
 import '../profile/public_doctor_profile_screen.dart';
 import '../../providers/settings_preferences_provider.dart';
 import '../../shared/widgets/report_bottom_sheet.dart';
-import 'chat_screen.dart';
+import 'call_media_controller.dart';
 import 'search_doctor_screen.dart';
 
 const _vcTeal       = Color(0xFF0F766E);
+// ignore: unused_element
 const _vcTealDark   = Color(0xFF06211E);
 const _vcBgDeep     = Color(0xFF041715);
 const _vcGreen      = Color(0xFF10B981);
@@ -18,9 +19,13 @@ const _vcCyan       = Color(0xFF2DD4BF);
 const _vcRed        = Color(0xFFEF4444);
 const _vcOrange     = Color(0xFFF97316);
 const _vcBlue       = Color(0xFF2563EB);
+// ignore: unused_element
 const _vcBtnBg      = Color(0xFF163834);
+// ignore: unused_element
 const _vcBorder     = Color(0xFF1E4540);
+// ignore: unused_element
 const _vcText       = Color(0xFFFFFFFF);
+// ignore: unused_element
 const _vcSub        = Color(0xFF94A3B8);
 
 enum _CallState { idle, calling, ringing, connected, onHold, reconnecting, ended }
@@ -48,6 +53,7 @@ class VoiceCallScreen extends StatefulWidget {
 
 class _VoiceCallScreenState extends State<VoiceCallScreen>
     with TickerProviderStateMixin {
+  final CallMediaController _media = CallMediaController();
   _CallState _state = _CallState.calling;
   int _seconds = 0;
   Timer? _timer;
@@ -66,9 +72,16 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   late final AnimationController _avatarFloat;
   late final AnimationController _waveformAnim;
 
+  void _onMediaChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _media.addListener(_onMediaChanged);
+    _media.initialize(withCamera: false, withAudio: true);
+
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -97,6 +110,8 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     _ring.dispose();
     _avatarFloat.dispose();
     _waveformAnim.dispose();
+    _media.removeListener(_onMediaChanged);
+    _media.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -160,6 +175,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
   void _toggleMute() {
     HapticFeedback.lightImpact();
     setState(() => _muted = !_muted);
+    _media.setMuted(_muted);
     _snack(_muted ? 'Microphone muted' : 'Microphone unmuted');
   }
 
@@ -177,12 +193,25 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     setState(() => _keypadOpen = !_keypadOpen);
   }
 
-  void _toggleRecord() {
+  void _toggleRecord() async {
     HapticFeedback.mediumImpact();
-    setState(() => _isRecording = !_isRecording);
-    _snack(_isRecording
-        ? 'Call recording started (consent logged)'
-        : 'Call recording saved');
+    if (!_isRecording) {
+      await _media.startClinicalRecording();
+      if (mounted) {
+        setState(() => _isRecording = _media.isRecordingCall);
+        _snack(_isRecording
+            ? 'Call recording started (clinical consent logged)'
+            : 'Could not start recording (check mic permission)');
+      }
+    } else {
+      final savedPath = await _media.stopClinicalRecording();
+      if (mounted) {
+        setState(() => _isRecording = false);
+        _snack(savedPath != null
+            ? 'Call recording saved successfully'
+            : 'Call recording ended');
+      }
+    }
   }
 
   void _toggleHold() {
@@ -703,7 +732,6 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     final isConnected = _state == _CallState.connected;
     final isCalling = _state == _CallState.calling || _state == _CallState.ringing;
 
@@ -981,8 +1009,102 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
 
                         const SizedBox(height: 12),
 
-                        // AI Noise Cancellation Pill Chip
-                        if (_aiNoiseCancellation)
+                        // AI Noise Cancellation / Live Audio Status Pill Chip
+                        if (_state == _CallState.connected) ...[
+                          if (_muted)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: _vcRed.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _vcRed.withValues(alpha: 0.4),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.mic_off_rounded,
+                                    color: _vcRed,
+                                    size: 15,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Microphone Muted',
+                                    style: TextStyle(
+                                      color: _vcRed,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (_media.currentAmplitude > 0.2)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: _vcGreen.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _vcGreen.withValues(alpha: 0.6),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.mic_rounded,
+                                    color: _vcGreen,
+                                    size: 15,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Speaking • Live Mic Active',
+                                    style: TextStyle(
+                                      color: _vcGreen,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else if (_aiNoiseCancellation)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F3A35),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: _vcGreen.withValues(alpha: 0.35),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.graphic_eq_rounded,
+                                    color: _vcGreen,
+                                    size: 15,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'AI Noise Cancellation',
+                                    style: TextStyle(
+                                      color: _vcGreen,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ] else if (_aiNoiseCancellation)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                             decoration: BoxDecoration(
@@ -1161,28 +1283,53 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     );
   }
 
-  // ── Animated Waveform Bars ──────────────────────────────────────────────────
+  // ── Animated Real-Time Voice Waveform Bars ──────────────────────────────────
   Widget _buildWaveformBars({required bool isLeft}) {
-    final heights = [14.0, 24.0, 36.0, 48.0, 32.0, 20.0, 12.0];
-    final list = isLeft ? heights : heights.reversed.toList();
+    final liveBars = isLeft ? _media.liveBars : _media.liveBars.reversed.toList();
+    final isMuted = _muted || _media.isMuted;
+    final isConnected = _state == _CallState.connected;
+
     return AnimatedBuilder(
       animation: _waveformAnim,
       builder: (_, _) {
         final v = _waveformAnim.value;
         return Row(
           mainAxisSize: MainAxisSize.min,
-          children: list.map((h) {
-            final barH = (h * (0.55 + v * 0.45)).clamp(6.0, 52.0);
-            return Container(
+          children: List.generate(liveBars.length, (i) {
+            final energy = liveBars[i];
+            double barH;
+            if (!isConnected) {
+              barH = (12.0 + (i % 3) * 6.0) * (0.7 + v * 0.3);
+            } else if (isMuted) {
+              barH = 4.0;
+            } else {
+              barH = (energy * 48.0 + (v * 4.0)).clamp(6.0, 54.0);
+            }
+
+            final color = isMuted
+                ? Colors.white24
+                : _vcGreen.withValues(alpha: isConnected ? 0.75 + (energy * 0.25) : 0.45);
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 60),
               margin: const EdgeInsets.symmetric(horizontal: 2.2),
               width: 3.5,
               height: barH,
               decoration: BoxDecoration(
-                color: _vcGreen.withValues(alpha: 0.7 + v * 0.3),
+                color: color,
                 borderRadius: BorderRadius.circular(3),
+                boxShadow: (!isMuted && isConnected && energy > 0.35)
+                    ? [
+                        BoxShadow(
+                          color: _vcGreen.withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          spreadRadius: 0.5,
+                        ),
+                      ]
+                    : null,
               ),
             );
-          }).toList(),
+          }),
         );
       },
     );

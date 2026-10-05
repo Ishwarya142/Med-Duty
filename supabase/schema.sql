@@ -310,3 +310,33 @@ alter publication supabase_realtime add table public.job_applications;
 alter publication supabase_realtime add table public.saved_items;
 alter publication supabase_realtime add table public.activity_items;
 alter publication supabase_realtime add table public.wallet_transactions;
+
+-- Disable Row Level Security (RLS) for seamless app queries or enable open policies
+alter table public.users disable row level security;
+alter table public.duties disable row level security;
+alter table public.duty_applications disable row level security;
+alter table public.hospitals disable row level security;
+alter table public.chats disable row level security;
+alter table public.messages disable row level security;
+alter table public.community_posts disable row level security;
+alter table public.post_comments disable row level security;
+alter table public.notifications disable row level security;
+alter table public.jobs disable row level security;
+alter table public.job_applications disable row level security;
+alter table public.reviews disable row level security;
+alter table public.wallet_transactions disable row level security;
+alter table public.saved_items disable row level security;
+alter table public.activity_items disable row level security;
+alter table public.documents disable row level security;
+alter table public.resumes disable row level security;
+alter table public.followers disable row level security;
+alter table public.following disable row level security;
+
+-- Storage Buckets setup
+insert into storage.buckets (id, name, public) values 
+  ('profile-images', 'profile-images', true),
+  ('cover-images', 'cover-images', true),
+  ('documents', 'documents', true),
+  ('community-images', 'community-images', true),
+  ('resumes', 'resumes', true)
+on conflict (id) do nothing;

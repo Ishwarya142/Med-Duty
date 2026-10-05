@@ -1,15 +1,19 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../profile/public_doctor_profile_screen.dart';
 import '../../providers/settings_preferences_provider.dart';
 import '../../shared/widgets/report_bottom_sheet.dart';
+import 'call_media_controller.dart';
 import 'chat_screen.dart';
 
 const _vtTeal       = Color(0xFF0F766E);
+// ignore: unused_element
 const _vtTealDark   = Color(0xFF06211E);
 const _vtBgDeep     = Color(0xFF041715);
 const _vtGreen      = Color(0xFF10B981);
@@ -17,12 +21,17 @@ const _vtCyan       = Color(0xFF2DD4BF);
 const _vtRed        = Color(0xFFEF4444);
 const _vtOrange     = Color(0xFFF97316);
 const _vtBlue       = Color(0xFF2563EB);
+// ignore: unused_element
 const _vtBtnBg      = Color(0xFF163834);
+// ignore: unused_element
 const _vtBorder     = Color(0xFF1E4540);
+// ignore: unused_element
 const _vtText       = Color(0xFFFFFFFF);
+// ignore: unused_element
 const _vtSub        = Color(0xFF94A3B8);
 
 enum _VideoCallState { idle, calling, ringing, connected, onHold, reconnecting, ended }
+// ignore: unused_field
 enum _AudioOutput { speaker, earpiece, bluetooth }
 
 class VideoCallScreen extends StatefulWidget {
@@ -47,6 +56,7 @@ class VideoCallScreen extends StatefulWidget {
 
 class _VideoCallScreenState extends State<VideoCallScreen>
     with TickerProviderStateMixin {
+  final CallMediaController _media = CallMediaController();
   _VideoCallState _state = _VideoCallState.calling;
   int _seconds = 0;
   Timer? _timer;
@@ -58,6 +68,8 @@ class _VideoCallScreenState extends State<VideoCallScreen>
   bool _isFrontCamera = true;
   bool _sharingScreen = false;
   bool _bgBlur = false;
+  bool _swappedViews = false;
+  // ignore: unused_field
   _AudioOutput _selectedOutput = _AudioOutput.speaker;
 
   late double _pipTop;
@@ -69,9 +81,16 @@ class _VideoCallScreenState extends State<VideoCallScreen>
   late final AnimationController _ring;
   late final AnimationController _avatarFloat;
 
+  void _onMediaChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    _media.addListener(_onMediaChanged);
+    _media.initialize(withCamera: true, withAudio: true);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final size = MediaQuery.of(context).size;
       final safe = MediaQuery.of(context).padding;
@@ -105,6 +124,8 @@ class _VideoCallScreenState extends State<VideoCallScreen>
     _pulse.dispose();
     _ring.dispose();
     _avatarFloat.dispose();
+    _media.removeListener(_onMediaChanged);
+    _media.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -168,12 +189,14 @@ class _VideoCallScreenState extends State<VideoCallScreen>
   void _toggleCamera() {
     HapticFeedback.lightImpact();
     setState(() => _cameraOn = !_cameraOn);
+    _media.toggleCamera(_cameraOn);
     _snack(_cameraOn ? 'Camera turned on' : 'Camera paused');
   }
 
   void _toggleMute() {
     HapticFeedback.lightImpact();
     setState(() => _muted = !_muted);
+    _media.setMuted(_muted);
     _snack(_muted ? 'Microphone muted' : 'Microphone unmuted');
   }
 
@@ -186,10 +209,13 @@ class _VideoCallScreenState extends State<VideoCallScreen>
     _snack(_speaker ? 'Speakerphone on' : 'Earpiece mode');
   }
 
-  void _flipCamera() {
+  void _flipCamera() async {
     HapticFeedback.lightImpact();
-    setState(() => _isFrontCamera = !_isFrontCamera);
-    _snack(_isFrontCamera ? 'Switched to front camera' : 'Switched to rear camera');
+    await _media.switchCamera();
+    if (mounted) {
+      setState(() => _isFrontCamera = _media.isFrontCamera);
+      _snack(_isFrontCamera ? 'Switched to front camera' : 'Switched to rear camera');
+    }
   }
 
   void _toggleScreenShare() {
@@ -898,7 +924,7 @@ class _VideoCallScreenState extends State<VideoCallScreen>
     );
   }
 
-  // ── Full-Screen Remote Video Canvas ─────────────────────────────────────────
+  // ── Full-Screen Video Canvas ────────────────────────────────────────────────
   Widget _buildRemoteCanvas(Size size, bool isConnected) {
     if (_sharingScreen) {
       return Container(
@@ -946,30 +972,129 @@ class _VideoCallScreenState extends State<VideoCallScreen>
       width: double.infinity,
       height: double.infinity,
       color: const Color(0xFF061A18),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Remote Doctor High-Definition Video Feed
-          Image.network(
-            'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=1200&q=80',
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Image.network(
-              'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=1200&q=80',
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0A2E2B), Color(0xFF041715)],
+      child: _swappedViews
+          ? _buildLiveCameraWidget(isPip: false)
+          : _buildDoctorFeedWidget(isPip: false),
+    );
+  }
+
+  // ── Live Camera Stream Widget ───────────────────────────────────────────────
+  Widget _buildLiveCameraWidget({required bool isPip}) {
+    if (!_cameraOn || !_media.cameraActive) {
+      return Container(
+        color: const Color(0xFF0D2421),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.videocam_off_rounded,
+                color: Colors.white54,
+                size: isPip ? 28 : 56,
+              ),
+              if (!isPip) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Your Camera is Off',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: const Center(
-                  child: Icon(Icons.person, size: 90, color: Colors.white24),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_media.isCameraLoading) {
+      return Container(
+        color: const Color(0xFF061A18),
+        child: const Center(
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: _vtCyan),
+          ),
+        ),
+      );
+    }
+
+    if (_media.isCameraInitialized && _media.cameraController != null) {
+      final controller = _media.cameraController!;
+      final previewSize = controller.value.previewSize;
+      final isMobile = defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS;
+      final double width = previewSize != null
+          ? (isMobile ? previewSize.height : previewSize.width)
+          : 480;
+      final double height = previewSize != null
+          ? (isMobile ? previewSize.width : previewSize.height)
+          : 640;
+
+      return ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.center,
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: CameraPreview(controller),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF08201D),
+      padding: const EdgeInsets.all(8),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_rounded, color: Colors.white38, size: isPip ? 24 : 44),
+            const SizedBox(height: 4),
+            Text(
+              _media.cameraError ?? 'Connecting camera…',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white54, fontSize: isPip ? 9.5 : 13),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Remote Doctor Feed Widget ──────────────────────────────────────────────
+  Widget _buildDoctorFeedWidget({required bool isPip}) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=1200&q=80',
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Image.network(
+            'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=1200&q=80',
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0A2E2B), Color(0xFF041715)],
                 ),
+              ),
+              child: Center(
+                child: Icon(Icons.person, size: isPip ? 36 : 90, color: Colors.white24),
               ),
             ),
           ),
-
-          // Vignette gradient overlay for readable text
+        ),
+        if (!isPip)
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -984,17 +1109,20 @@ class _VideoCallScreenState extends State<VideoCallScreen>
               ),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 
-  // ── Floating Draggable PiP ──────────────────────────────────────────────────
+  // ── Floating Draggable PiP (Tap to Swap, Drag to Reposition) ────────────────
   Widget _buildDraggablePip(Size size, EdgeInsets safe) {
     return Positioned(
       top: _pipTop,
       left: _pipLeft,
       child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _swappedViews = !_swappedViews);
+        },
         onPanUpdate: (details) {
           setState(() {
             _pipLeft = (_pipLeft + details.delta.dx)
@@ -1022,62 +1150,103 @@ class _VideoCallScreenState extends State<VideoCallScreen>
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // User's Camera Stream
-              if (_cameraOn)
-                Image.network(
-                  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(color: _vtTealDark),
-                )
+              // Display either live camera stream or doctor feed
+              if (!_swappedViews)
+                _buildLiveCameraWidget(isPip: true)
               else
-                Container(
-                  color: const Color(0xFF0D2421),
-                  child: const Center(
-                    child: Icon(Icons.videocam_off_rounded, color: Colors.white54, size: 28),
+                _buildDoctorFeedWidget(isPip: true),
+
+              // Top Right: Swap icon
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.swap_horiz_rounded,
+                    color: Colors.white,
+                    size: 13,
                   ),
                 ),
+              ),
 
-              // Bottom Left: "You" Pill Tag
+              // Bottom Left: Tag Pill ("You" + live audio indicator or "Dr. Name")
               Positioned(
                 bottom: 8,
                 left: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: Colors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text(
-                    'You',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _swappedViews ? 'Dr. ${widget.receiverName}' : 'You',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (!_swappedViews) ...[
+                        const SizedBox(width: 4),
+                        if (_muted)
+                          const Icon(Icons.mic_off, size: 10, color: _vtRed)
+                        else
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 100),
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _media.currentAmplitude > 0.18
+                                  ? _vtGreen
+                                  : Colors.white38,
+                              shape: BoxShape.circle,
+                              boxShadow: _media.currentAmplitude > 0.18
+                                  ? [
+                                      BoxShadow(
+                                        color: _vtGreen.withValues(alpha: 0.8),
+                                        blurRadius: 4,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                      ],
+                    ],
                   ),
                 ),
               ),
 
-              // Bottom Right: Flip Camera 🔄 Icon
-              Positioned(
-                bottom: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: _flipCamera,
-                  child: Container(
-                    padding: const EdgeInsets.all(4.5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.sync_rounded,
-                      color: Colors.white,
-                      size: 15,
+              // Bottom Right: Flip Camera 🔄 Icon (when showing local camera)
+              if (!_swappedViews)
+                Positioned(
+                  bottom: 6,
+                  right: 6,
+                  child: GestureDetector(
+                    onTap: _flipCamera,
+                    child: Container(
+                      padding: const EdgeInsets.all(4.5),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.65),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.sync_rounded,
+                        color: Colors.white,
+                        size: 15,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

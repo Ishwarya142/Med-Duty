@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/app_routes.dart';
+import '../../core/theme/app_colors.dart';
 import '../../providers/location_provider.dart';
 import '../duties/widgets/location_selector_sheet.dart';
 import 'onboarding_data.dart';
@@ -74,10 +75,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       isDismissible: false,
       enableDrag: false,
       builder: (bCtx) {
-        const card = Color(0xFF1A1A1A);
-        const tx = Colors.white;
-        final sub = Colors.white.withOpacity(0.5);
-        const border = Color(0xFF262626);
+        final isDark = Theme.of(bCtx).brightness == Brightness.dark;
+        final card = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+        final tx = isDark ? AppColors.darkText : AppColors.lightText;
+        final sub = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+        final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
         return Container(
           padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
@@ -154,8 +156,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -181,8 +183,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
+                    foregroundColor: tx,
+                    side: BorderSide(color: border),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -216,11 +218,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bg     = Color(0xFF0D0D0D);
-    const card   = Color(0xFF1A1A1A);
-    const border = Color(0xFF262626);
-    const tx     = Colors.white;
-    final sub    = Colors.white.withOpacity(0.5);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg     = isDark ? AppColors.darkBackground : AppColors.lightBackground;
+    final card   = isDark ? AppColors.darkSurface : AppColors.lightSurface;
+    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final tx     = isDark ? AppColors.darkText : AppColors.lightText;
+    final sub    = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
     return Scaffold(
       backgroundColor: bg,
@@ -279,7 +282,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       children: [
                         const SizedBox(height: 10),
                         // Visual Graphic Frame
-                        _buildVisualFrame(page.category, card, border, tx, sub, true),
+                        _buildVisualFrame(page.category, card, border, tx, sub, isDark),
                         const SizedBox(height: 28),
                         // Badge Tag
                         Container(
@@ -368,13 +371,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: ElevatedButton(
                       onPressed: _onNext,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        elevation: 0,
+                        elevation: 2,
+                        shadowColor: AppColors.accent.withValues(alpha: 0.35),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
