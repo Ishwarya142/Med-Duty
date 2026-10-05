@@ -5,8 +5,11 @@ class SupabaseConstants {
   SupabaseConstants._();
 
   // ─── Project Configuration ───────────────────────────────────────────────────
-  static const supabaseUrl = 'https://dklinuukqmsibmstpknn.supabase.co';
-  static const supabaseAnonKey = 'sb_publishable_QD_e7_kX1SHOeKNf_e8hmQ_G08y3E5Z';
+  static const projectRef = 'vrhbezoxiuymwwwyhqbp';
+  static const supabaseUrl = 'https://vrhbezoxiuymwwwyhqbp.supabase.co';
+  static const supabaseAnonKey = 'sb_publishable_Eo6h5QqIDeYo3-K0GAZPZQ_Ezx5Rm4e';
+  static const directDbConnection =
+      'postgresql://postgres:[YOUR-PASSWORD]@db.vrhbezoxiuymwwwyhqbp.supabase.co:5432/postgres';
 
   // ─── Table Names ─────────────────────────────────────────────────────────────
   static const users = 'users';
